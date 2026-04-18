@@ -5,13 +5,22 @@ on:
       env:
         required: true
         type: string
+        description: "prod ou dev"
       app_name:
         required: true
         type: string
+      gar_registry:
+        required: true
+        type: string
+        description: "URL base do GAR (ex.: us-central1-docker.pkg.dev/projeto/repo)"
       gcp_wif_provider:
+        required: true
         type: string
-      gcp_sa:
+        description: "Workload Identity Provider do ambiente"
+      gcp_service_account:
+        required: true
         type: string
+        description: "Service Account do ambiente"
 
 permissions:
   id-token: write
@@ -23,16 +32,16 @@ jobs:
     uses: theSamsCo/central-workflows/.github/workflows/build-tag-push-prod.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
-      registry: ${{ vars.GAR_REGISTRY }}
+      registry: ${{ inputs.gar_registry }}
       tag_kind: patch
-      gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_PROD }}
-      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PROD }}
+      gcp_workload_identity_provider: ${{ inputs.gcp_wif_provider }}
+      gcp_service_account: ${{ inputs.gcp_service_account }}
 
   build-dev:
     if: inputs.env == 'dev'
     uses: theSamsCo/central-workflows/.github/workflows/build-and-push.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
-      registry: ${{ vars.GAR_REGISTRY }}
-      gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}
-      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }}
+      registry: ${{ inputs.gar_registry }}
+      gcp_workload_identity_provider: ${{ inputs.gcp_wif_provider }}
+      gcp_service_account: ${{ inputs.gcp_service_account }}

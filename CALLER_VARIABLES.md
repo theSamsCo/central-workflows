@@ -41,11 +41,13 @@ No workflow do seu repositório, passe os inputs obrigatórios:
 ```yaml
 jobs:
   pipeline:
-    uses: thesamsco/.github/.github/workflows/pipeline.yaml@v1
+    uses: theSamsCo/central-workflows/.github/workflows/pipeline.yaml@v1
     with:
       env: dev          # "dev" ou "prod"
       app_name: minha-app
-      namespace: meu-namespace
+      gar_registry: ${{ vars.GAR_REGISTRY }}
+      gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}      # ou _PROD
+      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }} # ou _PROD
     permissions:
       id-token: write
       contents: write

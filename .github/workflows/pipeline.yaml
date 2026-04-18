@@ -1,5 +1,4 @@
-# Pipeline único: recebe env (prod|dev) e app_name. Reduz duplicação no caller.
-# O caller (repo-app) só chama este workflow passando env e app_name.
+# Pipeline de CI: build + push para o GAR. Deploy é feito via Argo CD.
 on:
   workflow_call:
     inputs:
@@ -10,19 +9,15 @@ on:
       app_name:
         required: true
         type: string
-      namespace:
-        required: true
-        type: string
 
-# Conceder permissões para os workflows chamados (build-tag-push-prod exige contents: write para git push)
 permissions:
   id-token: write
-  contents: write
+  contents: write  # necessário para git push da tag (prod)
 
 jobs:
   build-prod:
     if: inputs.env == 'prod'
-    uses: enter-too/github-actions-workflows/.github/workflows/build-tag-push-prod.yaml@v1
+    uses: thesamsco/.github/.github/workflows/build-tag-push-prod.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
       registry: ${{ vars.GAR_REGISTRY }}
@@ -32,39 +27,9 @@ jobs:
 
   build-dev:
     if: inputs.env == 'dev'
-    uses: enter-too/github-actions-workflows/.github/workflows/build-and-push.yaml@v1
+    uses: thesamsco/.github/.github/workflows/build-and-push.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
       registry: ${{ vars.GAR_REGISTRY }}
       gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}
       gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }}
-
-  deploy-prod:
-    if: inputs.env == 'prod'
-    needs: build-prod
-    uses: enter-too/github-actions-workflows/.github/workflows/deploy.yaml@v1
-    with:
-      app_name: ${{ inputs.app_name }}
-      tag: ${{ needs.build-prod.outputs.tag }}
-      registry: ${{ vars.GAR_REGISTRY }}
-      gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_PROD }}
-      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PROD }}
-      gke_cluster_name: ${{ vars.GKE_CLUSTER_NAME_PROD }}
-      gke_cluster_location: ${{ vars.GKE_CLUSTER_LOCATION_PROD }}
-      namespace: ${{ inputs.namespace }}
-      values_file: "kubernetes/values-prod.yaml"
-
-  deploy-dev:
-    if: inputs.env == 'dev'
-    needs: build-dev
-    uses: enter-too/github-actions-workflows/.github/workflows/deploy.yaml@v1
-    with:
-      app_name: ${{ inputs.app_name }}
-      tag: latest-dev
-      registry: ${{ vars.GAR_REGISTRY }}
-      gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}
-      gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }}
-      gke_cluster_name: ${{ vars.GKE_CLUSTER_NAME_DEV }}
-      gke_cluster_location: ${{ vars.GKE_CLUSTER_LOCATION_DEV }}
-      namespace: ${{ inputs.namespace }}
-      values_file: "kubernetes/values-dev.yaml"

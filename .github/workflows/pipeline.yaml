@@ -5,9 +5,12 @@ on:
       env:
         required: true
         type: string
-        description: "prod ou dev"
       app_name:
         required: true
+        type: string
+      gcp_wif_provider:
+        type: string
+      gcp_sa:
         type: string
 
 permissions:

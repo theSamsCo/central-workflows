@@ -18,6 +18,14 @@ on:
         required: true
         type: string
         description: "Service Account do GCP usada no push da imagem"
+      gcp_project_id:
+        required: true
+        type: string
+        description: "Project ID do GCP (ex.: meu-projeto-123)"
+      gcp_location:
+        required: true
+        type: string
+        description: "Região do GAR (ex.: us-central1)"
 
 permissions:
   id-token: write
@@ -38,18 +46,14 @@ jobs:
 
       - name: Criar repositório GAR se não existir
         run: |
-          REGISTRY="${{ inputs.registry }}"
-          HOST=$(echo "$REGISTRY" | cut -d'/' -f1)
-          PROJECT=$(echo "$REGISTRY" | cut -d'/' -f2)
-          REPO=$(echo "$REGISTRY" | cut -d'/' -f3)
-          LOCATION=$(echo "$HOST" | sed 's/-docker\.pkg\.dev//')
+          REPO=$(echo "${{ inputs.registry }}" | cut -d'/' -f3)
           gcloud artifacts repositories describe "$REPO" \
-            --location="$LOCATION" \
-            --project="$PROJECT" 2>/dev/null || \
+            --location="${{ inputs.gcp_location }}" \
+            --project="${{ inputs.gcp_project_id }}" 2>/dev/null || \
           gcloud artifacts repositories create "$REPO" \
             --repository-format=docker \
-            --location="$LOCATION" \
-            --project="$PROJECT" \
+            --location="${{ inputs.gcp_location }}" \
+            --project="${{ inputs.gcp_project_id }}" \
             --quiet
 
       - name: Docker login no Artifact Registry

@@ -13,6 +13,14 @@ on:
         required: true
         type: string
         description: "URL base do GAR (ex.: us-central1-docker.pkg.dev/projeto/repo)"
+      gcp_project_id:
+        required: true
+        type: string
+        description: "Project ID do GCP (ex.: meu-projeto-123)"
+      gcp_location:
+        required: true
+        type: string
+        description: "Região do GAR (ex.: us-central1)"
       gcp_wif_provider:
         required: true
         type: string
@@ -36,6 +44,8 @@ jobs:
       tag_kind: patch
       gcp_workload_identity_provider: ${{ inputs.gcp_wif_provider }}
       gcp_service_account: ${{ inputs.gcp_service_account }}
+      gcp_project_id: ${{ inputs.gcp_project_id }}
+      gcp_location: ${{ inputs.gcp_location }}
 
   build-dev:
     if: inputs.env == 'dev'
@@ -45,3 +55,5 @@ jobs:
       registry: ${{ inputs.gar_registry }}
       gcp_workload_identity_provider: ${{ inputs.gcp_wif_provider }}
       gcp_service_account: ${{ inputs.gcp_service_account }}
+      gcp_project_id: ${{ inputs.gcp_project_id }}
+      gcp_location: ${{ inputs.gcp_location }}

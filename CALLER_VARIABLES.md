@@ -9,6 +9,8 @@ Configure estas variáveis em **Settings → Secrets and variables → Actions �
 | Variável | Exemplo | Descrição |
 |---|---|---|
 | `GAR_REGISTRY` | `us-central1-docker.pkg.dev/meu-projeto/meu-repo` | URL base do registry no GAR |
+| `GCP_PROJECT_ID` | `meu-projeto-123` | Project ID do GCP |
+| `GCP_LOCATION` | `us-central1` | Região do GAR e dos recursos GCP |
 
 ---
 
@@ -46,6 +48,8 @@ jobs:
       env: dev          # "dev" ou "prod"
       app_name: minha-app
       gar_registry: ${{ vars.GAR_REGISTRY }}
+      gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      gcp_location: ${{ vars.GCP_LOCATION }}
       gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}      # ou _PROD
       gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }} # ou _PROD
     permissions:

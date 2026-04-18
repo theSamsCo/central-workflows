@@ -1,0 +1,65 @@
+# Fora da main: build + push como latest-dev (para dev/teste).
+# Na main use build-tag-push-prod.yaml para não subir latest-dev em prod.
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
+        description: "URL do registry no Artifact Registry (ex.: us-central1-docker.pkg.dev/projeto/repositorio)"
+      gcp_workload_identity_provider:
+        required: true
+        type: string
+        description: "Workload Identity Provider completo no GCP"
+      gcp_service_account:
+        required: true
+        type: string
+        description: "Service Account do GCP usada no push da imagem"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+          service_account: ${{ inputs.gcp_service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Criar repositório GAR se não existir
+        run: |
+          REGISTRY="${{ inputs.registry }}"
+          HOST=$(echo "$REGISTRY" | cut -d'/' -f1)
+          PROJECT=$(echo "$REGISTRY" | cut -d'/' -f2)
+          REPO=$(echo "$REGISTRY" | cut -d'/' -f3)
+          LOCATION=$(echo "$HOST" | sed 's/-docker\.pkg\.dev//')
+          gcloud artifacts repositories describe "$REPO" \
+            --location="$LOCATION" \
+            --project="$PROJECT" 2>/dev/null || \
+          gcloud artifacts repositories create "$REPO" \
+            --repository-format=docker \
+            --location="$LOCATION" \
+            --project="$PROJECT" \
+            --quiet
+
+      - name: Docker login no Artifact Registry
+        run: |
+          gcloud auth configure-docker --quiet
+
+      - name: Build image
+        run: |
+          docker build -t ${{ inputs.registry }}/${{ inputs.app_name }}:latest-dev .
+
+      - name: Push (latest-dev)
+        run: |
+          docker push ${{ inputs.registry }}/${{ inputs.app_name }}:latest-dev

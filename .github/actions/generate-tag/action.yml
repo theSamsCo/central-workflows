@@ -1,0 +1,28 @@
+name: "Generate Release Tag"
+description: "Gera tag semântica automaticamente"
+
+inputs:
+  kind:
+    description: "patch | minor | major"
+    required: false
+    default: "patch"
+
+# Em composite actions, o output precisa de value: mapeando o step (senão o caller recebe vazio).
+outputs:
+  tag:
+    description: "Tag gerada"
+    value: ${{ steps.generate.outputs.tag }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Make script executable
+      run: chmod +x ${{ github.action_path }}/generate-tag.sh
+      shell: bash
+
+    - name: Run tag generator
+      id: generate
+      run: |
+        TAG=$(${{ github.action_path }}/generate-tag.sh ${{ inputs.kind }})
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+      shell: bash

@@ -1,0 +1,94 @@
+# Para main: build com tag temporária (short SHA), gera tag de release, sobe para o registry
+# SOMENTE já taggeada. Nunca sobe latest-dev em prod; evita subir imagem ruim.
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      registry:
+        required: true
+        type: string
+        description: "URL do registry no Artifact Registry (ex.: us-central1-docker.pkg.dev/projeto/repositorio)"
+      tag_kind:
+        required: false
+        type: string
+        default: "patch"
+        description: "Tipo de versão para generate-tag.sh (patch, minor, major)"
+      gcp_workload_identity_provider:
+        required: true
+        type: string
+      gcp_service_account:
+        required: true
+        type: string
+    outputs:
+      tag:
+        value: ${{ jobs.build-tag-push.outputs.tag }}
+
+permissions:
+  id-token: write
+  contents: write   # necessário para git push da tag no generate-tag.sh
+
+jobs:
+  build-tag-push:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Generate release tag
+        id: gen
+        uses: Click-Cannabis/github-actions-workflows/.github/actions/generate-tag@v1
+        with:
+          kind: ${{ inputs.tag_kind }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.gcp_workload_identity_provider }}
+          service_account: ${{ inputs.gcp_service_account }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Criar repositório GAR se não existir
+        run: |
+          REGISTRY="${{ inputs.registry }}"
+          HOST=$(echo "$REGISTRY" | cut -d'/' -f1)
+          PROJECT=$(echo "$REGISTRY" | cut -d'/' -f2)
+          REPO=$(echo "$REGISTRY" | cut -d'/' -f3)
+          LOCATION=$(echo "$HOST" | sed 's/-docker\.pkg\.dev//')
+          gcloud artifacts repositories describe "$REPO" \
+            --location="$LOCATION" \
+            --project="$PROJECT" 2>/dev/null || \
+          gcloud artifacts repositories create "$REPO" \
+            --repository-format=docker \
+            --location="$LOCATION" \
+            --project="$PROJECT" \
+            --quiet
+
+      - name: Docker login no Artifact Registry
+        run: |
+          gcloud auth configure-docker --quiet
+
+      - name: Build with temporary tag (short SHA)
+        id: build
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          docker build -t ${{ inputs.registry }}/${{ inputs.app_name }}:${SHORT_SHA} .
+
+      - name: Tag and push (only release tag goes to registry)
+        id: release
+        run: |
+          SHORT_SHA="${{ steps.build.outputs.short_sha }}"
+          RELEASE_TAG="${{ steps.gen.outputs.tag }}"
+
+          docker tag ${{ inputs.registry }}/${{ inputs.app_name }}:${SHORT_SHA} \
+                     ${{ inputs.registry }}/${{ inputs.app_name }}:${RELEASE_TAG}
+
+          docker push ${{ inputs.registry }}/${{ inputs.app_name }}:${RELEASE_TAG}
+
+          echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT

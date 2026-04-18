@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate release tag
         id: gen
-        uses: Click-Cannabis/github-actions-workflows/.github/actions/generate-tag@v1
+        uses: theSamsCo/central-workflows/.github/actions/generate-tag@v1
         with:
           kind: ${{ inputs.tag_kind }}
 

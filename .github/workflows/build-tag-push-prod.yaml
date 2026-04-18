@@ -6,10 +6,13 @@ on:
       app_name:
         required: true
         type: string
-      registry:
+      gcp_project_id:
         required: true
         type: string
-        description: "URL do registry no Artifact Registry (ex.: us-central1-docker.pkg.dev/projeto/repositorio)"
+      gcp_location:
+        required: true
+        type: string
+        description: "Região do GAR (ex.: us-central1)"
       tag_kind:
         required: false
         type: string
@@ -21,14 +24,6 @@ on:
       gcp_service_account:
         required: true
         type: string
-      gcp_project_id:
-        required: true
-        type: string
-        description: "Project ID do GCP (ex.: meu-projeto-123)"
-      gcp_location:
-        required: true
-        type: string
-        description: "Região do GAR (ex.: us-central1)"
     outputs:
       tag:
         value: ${{ jobs.build-tag-push.outputs.tag }}
@@ -40,6 +35,8 @@ permissions:
 jobs:
   build-tag-push:
     runs-on: ubuntu-latest
+    env:
+      GAR_REGISTRY: ${{ inputs.gcp_location }}-docker.pkg.dev/${{ inputs.gcp_project_id }}/${{ inputs.app_name }}
     outputs:
       tag: ${{ steps.release.outputs.tag }}
 
@@ -62,11 +59,10 @@ jobs:
 
       - name: Criar repositório GAR se não existir
         run: |
-          REPO=$(echo "${{ inputs.registry }}" | cut -d'/' -f3)
-          gcloud artifacts repositories describe "$REPO" \
+          gcloud artifacts repositories describe "${{ inputs.app_name }}" \
             --location="${{ inputs.gcp_location }}" \
             --project="${{ inputs.gcp_project_id }}" 2>/dev/null || \
-          gcloud artifacts repositories create "$REPO" \
+          gcloud artifacts repositories create "${{ inputs.app_name }}" \
             --repository-format=docker \
             --location="${{ inputs.gcp_location }}" \
             --project="${{ inputs.gcp_project_id }}" \
@@ -74,7 +70,7 @@ jobs:
 
       - name: Docker login no Artifact Registry
         run: |
-          gcloud auth configure-docker --quiet
+          gcloud auth configure-docker ${{ inputs.gcp_location }}-docker.pkg.dev --quiet
 
       - name: Build with temporary tag (short SHA)
         id: build
@@ -82,7 +78,7 @@ jobs:
           SHA="${{ github.sha }}"
           SHORT_SHA="${SHA:0:7}"
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-          docker build -t ${{ inputs.registry }}/${{ inputs.app_name }}:${SHORT_SHA} .
+          docker build -t $GAR_REGISTRY/${{ inputs.app_name }}:${SHORT_SHA} .
 
       - name: Tag and push (only release tag goes to registry)
         id: release
@@ -90,9 +86,9 @@ jobs:
           SHORT_SHA="${{ steps.build.outputs.short_sha }}"
           RELEASE_TAG="${{ steps.gen.outputs.tag }}"
 
-          docker tag ${{ inputs.registry }}/${{ inputs.app_name }}:${SHORT_SHA} \
-                     ${{ inputs.registry }}/${{ inputs.app_name }}:${RELEASE_TAG}
+          docker tag $GAR_REGISTRY/${{ inputs.app_name }}:${SHORT_SHA} \
+                     $GAR_REGISTRY/${{ inputs.app_name }}:${RELEASE_TAG}
 
-          docker push ${{ inputs.registry }}/${{ inputs.app_name }}:${RELEASE_TAG}
+          docker push $GAR_REGISTRY/${{ inputs.app_name }}:${RELEASE_TAG}
 
           echo "tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT

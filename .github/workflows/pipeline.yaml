@@ -17,7 +17,7 @@ permissions:
 jobs:
   build-prod:
     if: inputs.env == 'prod'
-    uses: thesamsco/.github/.github/workflows/build-tag-push-prod.yaml@v1
+    uses: theSamsCo/.github/.github/workflows/build-tag-push-prod.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
       registry: ${{ vars.GAR_REGISTRY }}
@@ -27,7 +27,7 @@ jobs:
 
   build-dev:
     if: inputs.env == 'dev'
-    uses: thesamsco/.github/.github/workflows/build-and-push.yaml@v1
+    uses: theSamsCo/.github/.github/workflows/build-and-push.yaml@v1
     with:
       app_name: ${{ inputs.app_name }}
       registry: ${{ vars.GAR_REGISTRY }}

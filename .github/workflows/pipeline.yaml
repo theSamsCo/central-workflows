@@ -1,4 +1,4 @@
-# Pipeline de CI: build + push para o GAR. Deploy é feito via Argo CD.
+# Pipeline de CI/CD: build + push para o GAR e deploy via GitOps.
 on:
   workflow_call:
     inputs:
@@ -22,6 +22,19 @@ on:
       gcp_service_account:
         required: true
         type: string
+      gitops_repo:
+        required: true
+        type: string
+        description: "Repositório GitOps no formato org/repo (ex.: minha-org/gitops)"
+      gitops_values_path:
+        required: false
+        type: string
+        default: "values.yaml"
+        description: "Caminho do values.yaml dentro do repositório GitOps"
+    secrets:
+      gitops_token:
+        required: true
+        description: "PAT com permissão de push no repositório GitOps"
 
 permissions:
   id-token: write
@@ -48,3 +61,37 @@ jobs:
       gcp_location: ${{ inputs.gcp_location }}
       gcp_workload_identity_provider: ${{ inputs.gcp_wif_provider }}
       gcp_service_account: ${{ inputs.gcp_service_account }}
+
+  deploy:
+    needs: [build-prod, build-dev]
+    if: always() && (needs.build-prod.result == 'success' || needs.build-dev.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.gitops_repo }}
+          token: ${{ secrets.gitops_token }}
+
+      - name: Determinar tag da imagem
+        id: tag
+        run: |
+          if [[ "${{ inputs.env }}" == "prod" ]]; then
+            echo "value=${{ needs.build-prod.outputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=latest-dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Atualizar image.tag no values.yaml
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          yq e '.image.tag = env(IMAGE_TAG)' -i "${{ inputs.gitops_values_path }}"
+
+      - name: Commit e push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.gitops_values_path }}"
+          git diff --cached --quiet || git commit -m "chore(deploy): update ${{ inputs.app_name }} to ${{ steps.tag.outputs.value }}"
+          git push

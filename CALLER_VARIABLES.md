@@ -35,6 +35,21 @@ Configure estas variáveis em **Settings → Secrets and variables → Actions �
 
 ---
 
+## GitOps — Deploy
+
+| Variável | Exemplo | Descrição |
+|---|---|---|
+| `GITOPS_REPO` | `minha-org/gitops` | Repositório GitOps no formato `org/repo` |
+| `GITOPS_VALUES_PATH` | `apps/minha-app/values.yaml` | Caminho do `values.yaml` dentro do repositório GitOps (padrão: `values.yaml`) |
+
+### Secrets
+
+| Secret | Onde declarar | Descrição |
+|---|---|---|
+| `GITOPS_TOKEN` | **Org-level** (Settings → Secrets → Actions) | PAT com permissão de push no repositório GitOps (`repo` scope). Declarado uma única vez na organização — todos os repositórios herdam automaticamente. |
+
+---
+
 ## Como chamar a pipeline
 
 No workflow do seu repositório, passe os inputs obrigatórios:
@@ -48,8 +63,11 @@ jobs:
       app_name: minha-app
       gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
       gcp_location: ${{ vars.GCP_LOCATION }}
-      gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}      # ou _PROD
+      gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}       # ou _PROD
       gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }} # ou _PROD
+      gitops_repo: ${{ vars.GITOPS_REPO }}
+      gitops_values_path: ${{ vars.GITOPS_VALUES_PATH }}       # opcional
+    secrets: inherit   # herda GITOPS_TOKEN (e demais secrets) da organização
     permissions:
       id-token: write
       contents: write

@@ -40,7 +40,6 @@ Configure estas variáveis em **Settings → Secrets and variables → Actions �
 | Variável | Exemplo | Descrição |
 |---|---|---|
 | `GITOPS_REPO` | `minha-org/gitops` | Repositório GitOps no formato `org/repo` |
-| `GITOPS_VALUES_PATH` | `apps/minha-app/values.yaml` | Caminho do `values.yaml` dentro do repositório GitOps (padrão: `values.yaml`) |
 
 ### Secrets
 
@@ -66,7 +65,6 @@ jobs:
       gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER_DEV }}       # ou _PROD
       gcp_service_account: ${{ vars.GCP_SERVICE_ACCOUNT_DEV }} # ou _PROD
       gitops_repo: ${{ vars.GITOPS_REPO }}
-      gitops_values_path: ${{ vars.GITOPS_VALUES_PATH }}       # opcional
     secrets: inherit   # herda GITOPS_TOKEN (e demais secrets) da organização
     permissions:
       id-token: write

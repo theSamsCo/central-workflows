@@ -26,11 +26,6 @@ on:
         required: true
         type: string
         description: "Repositório GitOps no formato org/repo (ex.: minha-org/gitops)"
-      gitops_values_path:
-        required: false
-        type: string
-        default: "values.yaml"
-        description: "Caminho do values.yaml dentro do repositório GitOps"
     secrets:
       gitops_token:
         required: true
@@ -73,25 +68,32 @@ jobs:
           repository: ${{ inputs.gitops_repo }}
           token: ${{ secrets.gitops_token }}
 
-      - name: Determinar tag da imagem
-        id: tag
+      - name: Determinar tag e caminho do values
+        id: config
         run: |
+          case "${{ github.ref_name }}" in
+            main)    VALUES_PATH="prod/helm/values.yaml" ;;
+            homolog) VALUES_PATH="hml/helm/values.yaml"  ;;
+            *)       VALUES_PATH="dev/helm/values.yaml"  ;;
+          esac
+          echo "values_path=$VALUES_PATH" >> $GITHUB_OUTPUT
+
           if [[ "${{ inputs.env }}" == "prod" ]]; then
-            echo "value=${{ needs.build-prod.outputs.tag }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ needs.build-prod.outputs.tag }}" >> $GITHUB_OUTPUT
           else
-            echo "value=latest-dev" >> $GITHUB_OUTPUT
+            echo "tag=latest-dev" >> $GITHUB_OUTPUT
           fi
 
       - name: Atualizar image.tag no values.yaml
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+          IMAGE_TAG: ${{ steps.config.outputs.tag }}
         run: |
-          yq e '.image.tag = env(IMAGE_TAG)' -i "${{ inputs.gitops_values_path }}"
+          yq e '.image.tag = env(IMAGE_TAG)' -i "${{ steps.config.outputs.values_path }}"
 
       - name: Commit e push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "${{ inputs.gitops_values_path }}"
-          git diff --cached --quiet || git commit -m "chore(deploy): update ${{ inputs.app_name }} to ${{ steps.tag.outputs.value }}"
+          git add "${{ steps.config.outputs.values_path }}"
+          git diff --cached --quiet || git commit -m "chore(deploy): update ${{ inputs.app_name }} to ${{ steps.config.outputs.tag }}"
           git push
